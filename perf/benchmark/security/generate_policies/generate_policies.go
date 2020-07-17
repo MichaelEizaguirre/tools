@@ -179,6 +179,9 @@ func main() {
 			fmt.Println(err)
 		} else {
 			yaml.WriteString(rules)
+			if i < *numPoliciesPtr  {
+				yaml.WriteString("---")
+			}
 			fmt.Println(yaml.String())
 		}
 	}
