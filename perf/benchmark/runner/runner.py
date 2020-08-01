@@ -121,8 +121,7 @@ class Fortio:
             mesh="istio",
             cacert=None,
             jitter=False,
-            load_gen_type="fortio",
-            security_policy=None):
+            load_gen_type="fortio"):
         self.run_id = str(uuid.uuid4()).partition('-')[0]
         self.headers = headers
         self.conn = conn
@@ -149,7 +148,6 @@ class Fortio:
         self.cacert = cacert
         self.jitter = jitter
         self.load_gen_type = load_gen_type
-        self.security_policy = security_policy
 
         if mesh == "linkerd":
             self.mesh = "linkerd"
@@ -311,14 +309,6 @@ class Fortio:
 
         return nighthawk_cmd
 
-    def generate_policies(self, security_cmd):
-        os.system("go run {path}generate_policies.go {path}generate.go {param} > {path}{filename}"
-                  .format(param=security_cmd, path=LOCAL_GENERATED_SECURITY_POLICY_DIR, filename=LOCAL_GENERATED_SECURITY_POLICY_FILENAME))
-
-    def apply_generated_policy(self):
-        cmd = "kubectl apply -f {path}{filename}".format(path=LOCAL_GENERATED_SECURITY_POLICY_DIR, filename=LOCAL_GENERATED_SECURITY_POLICY_FILENAME)
-        run_command(cmd)
-
     def run(self, headers, conn, qps, size, duration):
         labels = self.generate_test_labels(conn, qps, size)
 
@@ -334,11 +324,6 @@ class Fortio:
 
         load_gen_cmd = ""
         if self.load_gen_type == "fortio":
-            if self.security_policy is not None:
-                security_cmd = "-generate_policy={security}".format(security=self.security_policy)
-                self.generate_policies(security_cmd)
-                self.apply_generated_policy()
-
             load_gen_cmd = self.generate_fortio_cmd(headers_cmd, conn, qps, duration, grpc, cacert_arg, self.jitter, labels)
         elif self.load_gen_type == "nighthawk":
             # TODO(oschaaf): Figure out how to best determine the right concurrency for Nighthawk.
@@ -408,8 +393,6 @@ LOCAL_FLAMEDIR = os.path.join(WD, "../flame/")
 PERF_PROXY_FILE = "get_proxy_perf.sh"
 LOCAL_FLAME_PROXY_FILE_PATH = LOCAL_FLAMEDIR + PERF_PROXY_FILE
 LOCAL_FLAMEOUTPUT = LOCAL_FLAMEDIR + "flameoutput/"
-LOCAL_GENERATED_SECURITY_POLICY_DIR = os.path.join(WD, "../security/generate_policies/")
-LOCAL_GENERATED_SECURITY_POLICY_FILENAME = "generated_policy.yaml"
 
 
 def run_perf(pod, labels, duration, frequency):
@@ -465,7 +448,6 @@ def fortio_from_config_file(args):
         fortio.protocol_mode = job_config.get('protocol_mode', 'http')
         fortio.extra_labels = job_config.get('extra_labels')
         fortio.jitter = job_config.get("jitter", False)
-        fortio.security_policy = job_config.get("security_policy", None)
 
         return fortio
 
@@ -502,8 +484,7 @@ def run_perf_test(args):
             telemetry_mode=args.telemetry_mode,
             cacert=args.cacert,
             jitter=args.jitter,
-            load_gen_type=args.load_gen_type,
-            security_policy=args.security_policy)
+            load_gen_type=args.load_gen_type)
 
     if fortio.duration <= min_duration:
         print("Duration must be greater than {min_duration}".format(
@@ -665,11 +646,7 @@ def get_parser():
     parser.add_argument(
         "--load_gen_type",
         help="fortio or nighthawk",
-        default="fortio",)
-    parser.add_argument(
-        "--security_policy",
-        help="a list of `securityType:value` should be separated by comma. Example \"numPolicies:2,from:10\"",
-        default=None
+        default="fortio",
     )
 
     define_bool(parser, "baseline", "run baseline for all", False)

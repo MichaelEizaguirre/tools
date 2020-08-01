@@ -32,8 +32,7 @@ import (
 	authzpb "istio.io/api/security/v1beta1"
 )
 
-type ruleOption struct {
-	occurrence int
+type ruleGenerator struct {
 	gen        generator
 }
 
@@ -95,16 +94,17 @@ func PolicyToYAML(policy *MyPolicy, spec proto.Message) (string, error) {
 	return string(headerYaml) + rulesYaml.String(), nil
 }
 
-func getOrderedKeySlice(ruleToOccurrences map[string]*ruleOption) *[]string {
+func getOrderedKeySlice(ruleToGenerator map[string]*ruleGenerator) *[]string {
 	var sortedKeys []string
-	for key := range ruleToOccurrences {
+	for key := range ruleToGenerator {
 		sortedKeys = append(sortedKeys, key)
 	}
 	sort.Strings(sortedKeys)
 	return &sortedKeys
 }
 
-func generateAuthorizationPolicy(action string, ruleToOccurrences map[string]*ruleOption, policy *MyPolicy) (string, error) {
+func generateAuthorizationPolicy(action string, ruleToGenerator map[string]*ruleGenerator, policy *MyPolicy,
+	ruleMap map[string]int) (string, error) {
 	spec := &authzpb.AuthorizationPolicy{}
 	switch action {
 	case "ALLOW":
@@ -114,13 +114,10 @@ func generateAuthorizationPolicy(action string, ruleToOccurrences map[string]*ru
 	}
 
 	var ruleList []*authzpb.Rule
-	sortedKeys := getOrderedKeySlice(ruleToOccurrences)
+	sortedKeys := getOrderedKeySlice(ruleToGenerator)
 	for _, name := range *sortedKeys {
-		ruleOp := ruleToOccurrences[name]
-		if ruleOp.occurrence > 0 {
-			rule := ruleOp.gen.generate(name, ruleOp.occurrence, action)
-			ruleList = append(ruleList, rule)
-		}
+		rule := ruleToGenerator[name].gen.generate(action, ruleMap)
+		ruleList = append(ruleList, rule)
 	}
 	spec.Rules = ruleList
 
@@ -131,12 +128,12 @@ func generateAuthorizationPolicy(action string, ruleToOccurrences map[string]*ru
 	return yaml, nil
 }
 
-func generateRule(action string, ruleToOccurrences map[string]*ruleOption,
-	policy *MyPolicy) (string, error) {
+func generateRules(action string, ruleToGenerator map[string]*ruleGenerator,
+	policy *MyPolicy, ruleMap map[string]int) (string, error) {
 
 	switch policy.Kind {
 	case "AuthorizationPolicy":
-		return generateAuthorizationPolicy(action, ruleToOccurrences, policy)
+		return generateAuthorizationPolicy(action, ruleToGenerator, policy, ruleMap)
 	case "PeerAuthentication":
 		return "", fmt.Errorf("unimplemented")
 	case "RequestAuthentication":
@@ -144,14 +141,6 @@ func generateRule(action string, ruleToOccurrences map[string]*ruleOption,
 	default:
 		return "", fmt.Errorf("unknown policy kind: %s", policy.Kind)
 	}
-}
-
-func createRules(action string, ruleToOccurrences map[string]*ruleOption, policy *MyPolicy) (string, error) {
-	yaml, err := generateRule(action, ruleToOccurrences, policy)
-	if err != nil {
-		return "", err
-	}
-	return yaml, nil
 }
 
 func createPolicyHeader(namespace string, name string, kind string) *MyPolicy {
@@ -162,23 +151,27 @@ func createPolicyHeader(namespace string, name string, kind string) *MyPolicy {
 	}
 }
 
-func createRuleOptionMap(ruleToOccurancesPtr map[string]int) (map[string]*ruleOption, error) {
-	ruleOptionMap := make(map[string]*ruleOption)
-	for rule, occurrence := range ruleToOccurancesPtr {
-		ruleOptionMap[rule] = &ruleOption{}
-		ruleOptionMap[rule].occurrence = occurrence
-		switch rule {
-		case "when":
-			ruleOptionMap[rule].gen = conditionGenerator{}
-		case "to":
-			ruleOptionMap[rule].gen = operationGenerator{}
-		case "from":
-			ruleOptionMap[rule].gen = sourceGenerator{}
-		default:
-			return nil, fmt.Errorf("invalid rule: %s", rule)
+func createRuleGeneratorMap(ruleToOccurancesPtr map[string]int) (map[string]*ruleGenerator, error) {
+	ruleGeneratorMap := make(map[string]*ruleGenerator)
+
+	if ruleToOccurancesPtr["numSourceIP"] > 0 || ruleToOccurancesPtr["numNamespaces"] > 0 {
+		ruleGeneratorMap["from"] = &ruleGenerator{
+			gen: sourceGenerator{},
 		}
 	}
-	return ruleOptionMap, nil
+
+	if ruleToOccurancesPtr["numPaths"] > 0 {
+		ruleGeneratorMap["to"] = &ruleGenerator{
+			gen: operationGenerator{},
+		}
+	}
+
+	if ruleToOccurancesPtr["numValues"] > 0 {
+		ruleGeneratorMap["when"] = &ruleGenerator{
+			gen: conditionGenerator{},
+		}
+	}
+	return ruleGeneratorMap, nil
 }
 
 func parseArguments(arguments string) (map[string]string, error) {
@@ -204,15 +197,16 @@ func parseArguments(arguments string) (map[string]string, error) {
 func createRuleMap(arguments map[string]string) (map[string]int, error) {
 	ruleMap := make(map[string]int)
 	// These are the default values
-	ruleMap["when"] = 0
-	ruleMap["from"] = 1
-	ruleMap["to"] = 0
+	ruleMap["numPaths"] = 0
+	ruleMap["numSourceIP"] = 1
+	ruleMap["numNamespaces"] = 0
+	ruleMap["numValues"] = 0
 
 	for key := range ruleMap {
 		if argVal, inMap := arguments[key]; inMap {
 			argVal, err := strconv.Atoi(argVal)
 			if err != nil {
-				return nil, fmt.Errorf("invalid value: %d", ruleMap["numPolicies"])
+				return nil, fmt.Errorf("invalid value: %d", argVal)
 			}
 			ruleMap[key] = argVal
 		}
@@ -223,7 +217,7 @@ func createRuleMap(arguments map[string]string) (map[string]int, error) {
 func main() {
 	securityPtr := flag.String("generate_policy", "numPolicies:1", `List of key value pairs separated by commas.
 	Supported options: namespace:\"string\", action:DENY/ALLOW, policyType:AuthorizationPolicy, 
-	numPolicies:int, when:int, from:int, to:int`)
+	numPolicies:int, numPaths:int, numSourceIP:int. numNamespaces:int`)
 	flag.Parse()
 
 	argumentMap, err := parseArguments(*securityPtr)
@@ -247,13 +241,13 @@ func main() {
 	for i := 1; i <= numPolices; i++ {
 		policy := createPolicyHeader(argumentMap["namespace"], fmt.Sprintf("test-%d", i), argumentMap["policyType"])
 
-		ruleOptionMap, err := createRuleOptionMap(ruleMap)
+		ruleToGenerator, err := createRuleGeneratorMap(ruleMap)
 		if err != nil {
 			fmt.Println(err)
 			break
 		}
 
-		rules, err := createRules(argumentMap["action"], ruleOptionMap, policy)
+		rules, err := generateRules(argumentMap["action"], ruleToGenerator, policy, ruleMap)
 		if err != nil {
 			fmt.Println(err)
 			break
