@@ -362,21 +362,6 @@ go run generate_policies.go generate.go -generate_policy="PeerAuthentication:1,m
 
 - This creates 1 PeerAuthentication policy which has the mtls mode set to DISABLE
 
-## Example 4
-
-- By creating a config file called config.json with the following data, and then running the following command:
-
-```json
-{
-  "AuthZ":
-  {
-    "numPolicies":10,
-    "numSourceIP":10,
-    "numPaths":2
-  }
-}
-```
-
 ## Cleanup
 
 To remove the policies applied navigate to the generate_policies folder and run the following command (update "largePolicy.yaml" if applied to a different .yaml file):

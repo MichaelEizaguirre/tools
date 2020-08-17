@@ -237,7 +237,7 @@ func generateJwksBytes(privateKey *rsa.PrivateKey) ([]byte, error) {
 		Keys:	[]*Jwk{
 			&Jwk{
 				E:		"AQAB",
-				N:		strings.TrimRight(base64.URLEncoding.EncodeToString((*privateKey.PublicKey.N).Bytes()), "="),
+				N:		base64.URLEncoding.EncodeToString((*privateKey.PublicKey.N).Bytes()),
 				Kty:	"RS256",
 			},
 		},
