@@ -25,28 +25,28 @@ require (
 	github.com/gliderlabs/ssh v0.2.2 // indirect
 	github.com/gogo/protobuf v1.3.1
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
-	github.com/golang/protobuf v1.3.5
+	github.com/golang/protobuf v1.4.0
 	github.com/google/go-cmp v0.4.0
 	github.com/hhatto/gorst v0.0.0-20181029133204-ca9f730cac5b // indirect
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
 	github.com/jdkato/prose v1.1.0 // indirect
 	github.com/kevinburke/ssh_config v0.0.0-20180830205328-81db2a75821e // indirect
-	github.com/kr/pretty v0.1.0
+	github.com/kr/pretty v0.2.0
 	github.com/lestrrat/go-jwx v0.0.0-20180221005942-b7d4802280ae // indirect
 	github.com/lestrrat/go-pdebug v0.0.0-20180220043741-569c97477ae8 // indirect
 	github.com/montanaflynn/stats v0.0.0-20180911141734-db72e6cae808 // indirect
 	github.com/neurosnap/sentences v1.0.6 // indirect
+	github.com/ory/hydra v1.7.0 // indirect
 	github.com/pelletier/go-buffruneio v0.2.0 // indirect
 	github.com/prometheus/alertmanager v0.20.0
 	github.com/russross/blackfriday/v2 v2.0.1
 	github.com/shogo82148/go-shuffle v0.0.0-20180218125048-27e6095f230d // indirect
 	github.com/shurcooL/sanitized_anchor_name v1.0.0 // indirect
-	github.com/spf13/cobra v0.0.5
-	github.com/spf13/viper v1.4.0
+	github.com/spf13/cobra v1.0.0
+	github.com/spf13/viper v1.7.0
 	github.com/src-d/gcfg v1.4.0 // indirect
 	github.com/xanzy/ssh-agent v0.2.0 // indirect
-	golang.org/x/tools v0.0.0-20200113154838-30cae5f2fb06
-	gonum.org/v1/netlib v0.0.0-20191031114514-eccb95939662 // indirect
+	golang.org/x/tools v0.0.0-20200313205530-4303120df7d8
 	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
 	gopkg.in/neurosnap/sentences.v1 v1.0.6 // indirect
 	gopkg.in/russross/blackfriday.v2 v2.0.0 // indirect
@@ -57,7 +57,7 @@ require (
 	gopkg.in/src-d/go-license-detector.v2 v2.0.0-20180510072912-da552ecf050b
 	gopkg.in/src-d/go-siva.v1 v1.3.0 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
-	gopkg.in/yaml.v2 v2.2.8
+	gopkg.in/yaml.v2 v2.3.0
 	istio.io/api v0.0.0-20200723170824-3c2193e74947
 	istio.io/gogo-genproto v0.0.0-20191009201739-17d570f95998
 	k8s.io/apiextensions-apiserver v0.18.2

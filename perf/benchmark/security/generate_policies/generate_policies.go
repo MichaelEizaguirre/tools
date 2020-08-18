@@ -23,10 +23,12 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"math/big"
 
 	"io/ioutil"
 	"os"
 	"strings"
+	// "strconv"
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/ghodss/yaml"
@@ -209,6 +211,38 @@ func generatePeerAuthentication(policyData SecurityPolicy, policyHeader *MyPolic
 	return yaml, nil
 }
 
+func SignedString(key interface{}, t *jwt.Token) (string, error) {
+	var sig, sstr string
+	var err error
+	if sstr, err = SigningString(t); err != nil {
+		return "", err
+	}
+	if sig, err = t.Method.Sign(sstr, key); err != nil {
+		return "", err
+	}
+	return strings.Join([]string{sstr, sig}, "."), nil
+}
+
+func SigningString(t *jwt.Token) (string, error) {
+	var err error
+	parts := make([]string, 2)
+	for i, _ := range parts {
+		var jsonValue []byte
+		if i == 0 {
+			if jsonValue, err = json.Marshal(t.Header); err != nil {
+				return "", err
+			}
+		} else {
+			if jsonValue, err = json.Marshal(t.Claims); err != nil {
+				return "", err
+			}
+		}
+
+		parts[i] = base64.URLEncoding.EncodeToString(jsonValue)
+	}
+	return strings.Join(parts, "."), nil
+}
+
 func generateToken(policyData SecurityPolicy, privateKey *rsa.PrivateKey) (string, error) {
 	issuer := fmt.Sprintf("issuer-%d", policyData.RequestAuthN.NumJwks)
 	if policyData.RequestAuthN.TokenIssuer != "" {
@@ -225,7 +259,7 @@ func generateToken(policyData SecurityPolicy, privateKey *rsa.PrivateKey) (strin
 		}
 		privateKey = newPrivateKey
 	}
-	tokenString, err := token.SignedString(privateKey)
+	tokenString, err := SignedString(privateKey, token)
 	if err != nil {
 		return "", err
 	}
@@ -236,7 +270,7 @@ func generateJwksBytes(privateKey *rsa.PrivateKey) ([]byte, error) {
 	jwks := &Jwks{
 		Keys:	[]*Jwk{
 			&Jwk{
-				E:		"AQAB",
+				E:		base64.URLEncoding.EncodeToString(big.NewInt(int64(privateKey.PublicKey.E)).Bytes()),
 				N:		base64.URLEncoding.EncodeToString((*privateKey.PublicKey.N).Bytes()),
 				Kty:	"RS256",
 			},
